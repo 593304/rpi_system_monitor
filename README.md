@@ -23,3 +23,42 @@ CREATE TABLE monitoring.rpi_data (
 	cloud_total_gb NUMERIC(6, 2),  
 	timestamp TIMESTAMP  
 )
+
+## Update 1
+
+Views for daily and hourly statistics for CPU and memory
+
+CREATE VIEW monitoring.rpi_data_cpu_mem_hourly AS  
+	SELECT  
+		ROUND(AVG(cpu_temp_celsius), 2) AS cpu_temp_celsius,  
+		ROUND(AVG(cpu0_usage_percent), 2) AS cpu0_usage_percent,  
+		ROUND(AVG(cpu1_usage_percent), 2) AS cpu1_usage_percent,  
+		ROUND(AVG(cpu2_usage_percent), 2) AS cpu2_usage_percent,  
+		ROUND(AVG(cpu3_usage_percent), 2) AS cpu3_usage_percent,  
+		ROUND(AVG(mem_usage_mb), 2) AS mem_usage_mb,  
+		ROUND(AVG(mem_total_mb), 2) AS mem_total_mb,  
+		DATE_TRUNC('hour', timestamp) AS hour  
+	FROM  
+		monitoring.rpi_data  
+	GROUP BY  
+		hour  
+	ORDER BY  
+	hour ASC;
+
+CREATE VIEW monitoring.rpi_data_cpu_mem_daily AS  
+	SELECT  
+		ROUND(AVG(cpu_temp_celsius), 2) AS cpu_temp_celsius,  
+		ROUND(AVG(cpu0_usage_percent), 2) AS cpu0_usage_percent,  
+		ROUND(AVG(cpu1_usage_percent), 2) AS cpu1_usage_percent,  
+		ROUND(AVG(cpu2_usage_percent), 2) AS cpu2_usage_percent,  
+		ROUND(AVG(cpu3_usage_percent), 2) AS cpu3_usage_percent,  
+		ROUND(AVG(mem_usage_mb), 2) AS mem_usage_mb,  
+		ROUND(AVG(mem_total_mb), 2) AS mem_total_mb,  
+		DATE_TRUNC('day', timestamp) AS day  
+	FROM  
+		monitoring.rpi_data  
+	GROUP BY  
+		day  
+	ORDER BY  
+	day ASC;
+
