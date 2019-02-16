@@ -120,3 +120,7 @@ CREATE VIEW monitoring.rpi_data_disk_diff_by_days AS
     ORDER BY  
         day ASC;
 ```
+
+## Update 3
+
+Values will be saved to a temporary file if cannot connect to the database
