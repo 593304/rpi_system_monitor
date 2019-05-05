@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import configparser
+import json
 import logging
 import psutil
 import psycopg2
-import json
+import requests
 import os
 
 DRIVES = {
@@ -22,6 +24,9 @@ LOGGER = None
 LOG_FILE = '/mnt/dev/log/python/rpi_data_polling.log'
 LOGGER_FORMAT = '%(asctime)15s | %(levelname)8s | %(name)s - %(funcName)12s - %(message)s'
 
+CONFIG = None
+CONFIG_FILE = '/mnt/dev/monitoring/RPI_data/get_rpi_data.conf'
+
 
 def init():
     logging.basicConfig(filename=LOG_FILE, format=LOGGER_FORMAT, level=logging.INFO)
@@ -39,6 +44,9 @@ def init():
         LOGGER.error('Cannot connect to the database, using the temporary file')
         global FILE
         FILE = open(TEMP_DB_FILE, 'a+')
+
+    CONFIG = configparser.ConfigParser()
+    CONFIG.read(CONFIG_FILE)
 
 
 def check_temp_file():
@@ -97,6 +105,13 @@ def to_gb(in_bytes):
 
 
 def main():
+    # RPI Dashboard URL
+    protocol = CONFIG.get('SERVER', 'PROTOCOL')
+    host = CONFIG.get('SERVER', 'HOST')
+    port = CONFIG.get('SERVER', 'PORT')
+    path = CONFIG.get('SERVER', 'PATH')
+    base_url = "{0}://{1}:{2}/{3}".format(protocol, host, port, path)
+
     # Getting the values in the beginning and in the end to get the average of them
     cpu_temp = psutil.sensors_temperatures()['cpu-thermal'][0].current
     mem_usage = to_mb(psutil.virtual_memory().used)
@@ -136,6 +151,56 @@ def main():
 
     LOGGER.debug('RPI data: {}'.format(data))
 
+    # Sending data to the REST APIs
+    cpu_usage_path = CONFIG.get('SERVER', 'CPU_USAGE')
+    cpu_usage_data = {
+        'core0': cpu_0_usage,
+        'core1': cpu_1_usage,
+        'core2': cpu_2_usage,
+        'core3': cpu_3_usage
+    }
+    try:
+        requests.post("{0}/{1}".format(base_url, cpu_usage_path), json=cpu_usage_data)
+    except Exception as e:
+        LOGGER.error(str(e))
+
+    cpu_temp_path = CONFIG.get('SERVER', 'CPU_TEMP')
+    cpu_temp_data = {
+        'temp': cpu_temp,
+        'limit': 85.0
+    }
+    try:
+        requests.post("{0}/{1}".format(base_url, cpu_temp_path), json=cpu_temp_data)
+    except Exception as e:
+        LOGGER.error(str(e))
+
+    mem_usage_path = CONFIG.get('SERVER', 'MEM_USAGE')
+    mem_usage_data = {
+        'usage': mem_usage,
+        'total': mem_total
+    }
+    try:
+        requests.post("{0}/{1}".format(base_url, mem_usage_path), json=mem_usage_data)
+    except Exception as e:
+        LOGGER.error(str(e))
+
+    disk_usage_path = CONFIG.get('SERVER', 'DISK_USAGE')
+    disk_usage_data = {
+        'sdUsage': disk_usage,
+        'sdTotal': disk_total,
+        'nasUsage': nas_usage,
+        'nasTotal': nas_total,
+        'devUsage': dev_usage,
+        'devTotal': dev_total,
+        'cloudUsage': cloud_usage,
+        'cloudTotal': cloud_total
+    }
+    try:
+        requests.post("{0}/{1}".format(base_url, disk_usage_path), json=disk_usage_data)
+    except Exception as e:
+        LOGGER.error(str(e))
+
+    # Saving data
     if DB_CONNECTION is None:
         save_to_file(data)
         FILE.close()

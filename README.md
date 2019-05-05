@@ -124,3 +124,7 @@ CREATE VIEW monitoring.rpi_data_disk_diff_by_days AS
 ## Update 3
 
 Values will be saved to a temporary file if cannot connect to the database
+
+## Update 4
+
+Added REST API calls for notifying a custom dashboard application
