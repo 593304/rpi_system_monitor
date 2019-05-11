@@ -21,17 +21,29 @@ CONFIG_GROUPS = {
     'server': 'SERVER'
 }
 
+CONFIG_KEYS = {
+    'db_conn_string': [CONFIG_GROUPS['database'], 'CONNECTION_STRING'],
+    'db_temp_file': [CONFIG_GROUPS['database'], 'TEMP_FILE'],
+    'logger_file': [CONFIG_GROUPS['logger'], 'FILE'],
+    'logger_format': [CONFIG_GROUPS['logger'], 'FORMAT'],
+    'server_protocol': [CONFIG_GROUPS['server'], 'PROTOCOL'],
+    'server_host': [CONFIG_GROUPS['server'], 'HOST'],
+    'server_port': [CONFIG_GROUPS['server'], 'PORT'],
+    'server_path': [CONFIG_GROUPS['server'], 'PATH'],
+    'server_cpu_usage': [CONFIG_GROUPS['server'], 'CPU_USAGE'],
+    'server_cpu_temp': [CONFIG_GROUPS['server'], 'CPU_TEMP'],
+    'server_mem_usage': [CONFIG_GROUPS['server'], 'MEM_USAGE'],
+    'server_disk_usage': [CONFIG_GROUPS['server'], 'DISK_USAGE']
+}
+
 CONFIG = None
 CONFIG_FILE = '/mnt/dev/monitoring/RPI_data/get_rpi_data.conf'
 
 DB_CONNECTION = None
 DB_CURSOR = None
-TEMP_DB_FILE = None
 FILE = None
 
 LOGGER = None
-LOG_FILE = None
-LOGGER_FORMAT = None
 
 
 def init():
@@ -39,28 +51,30 @@ def init():
     CONFIG = configparser.ConfigParser()
     CONFIG.read(CONFIG_FILE)
 
-    global TEMP_DB_FILE
-    TEMP_DB_FILE = CONFIG.get(CONFIG_GROUPS['database'], 'TEMP_FILE')
+    db_conn_string = CONFIG_KEYS['db_conn_string']
+    db_temp_file = CONFIG_KEYS['db_temp_file']
+    logger_file = CONFIG_KEYS['logger_file']
+    logger_format = CONFIG_KEYS['logger_format']
+
+    temp_db_file = CONFIG.get(db_temp_file[0], db_temp_file[1])
 
     global LOGGER
-    global LOG_FILE
-    global LOGGER_FORMAT
-    LOG_FILE = CONFIG.get(CONFIG_GROUPS['logger'], 'FILE')
-    LOGGER_FORMAT = CONFIG.get(CONFIG_GROUPS['logger'], 'FORMAT').replace('((', '%(')
-    logging.basicConfig(filename=LOG_FILE, format=LOGGER_FORMAT, level=logging.INFO)
+    log_file = CONFIG.get(logger_file[0], logger_file[1])
+    logger_format = CONFIG.get(logger_format[0], logger_format[1]).replace('((', '%(')
+    logging.basicConfig(filename=log_file, format=logger_format, level=logging.INFO)
     LOGGER = logging.getLogger('polling_rpi_system')
     try:
         global DB_CONNECTION
         global DB_CURSOR
-        DB_CONNECTION = psycopg2.connect(CONFIG.get(CONFIG_GROUPS['database'], 'CONNECTION_STRING'))
+        DB_CONNECTION = psycopg2.connect(CONFIG.get(db_conn_string[0], db_conn_string[1]))
         DB_CURSOR = DB_CONNECTION.cursor()
         LOGGER.debug('Connected to the database')
         LOGGER.debug('Checking temp file')
-        check_temp_file(TEMP_DB_FILE)
+        check_temp_file(temp_db_file)
     except Exception:
         LOGGER.error('Cannot connect to the database, using the temporary file')
         global FILE
-        FILE = open(TEMP_DB_FILE, 'a+')
+        FILE = open(temp_db_file, 'a+')
 
 
 def check_temp_file(temp_db_file):
@@ -119,11 +133,20 @@ def to_gb(in_bytes):
 
 
 def main():
+    server_protocol = CONFIG_KEYS['server_protocol']
+    server_host = CONFIG_KEYS['server_host']
+    server_port = CONFIG_KEYS['server_port']
+    server_path = CONFIG_KEYS['server_path']
+    server_cpu_usage = CONFIG_KEYS['server_cpu_usage']
+    server_cpu_temp = CONFIG_KEYS['server_cpu_temp']
+    server_mem_usage = CONFIG_KEYS['server_mem_usage']
+    server_disk_usage = CONFIG_KEYS['server_disk_usage']
+
     # RPI Dashboard URL
-    protocol = CONFIG.get(CONFIG_GROUPS['server'], 'PROTOCOL')
-    host = CONFIG.get(CONFIG_GROUPS['server'], 'HOST')
-    port = CONFIG.get(CONFIG_GROUPS['server'], 'PORT')
-    path = CONFIG.get(CONFIG_GROUPS['server'], 'PATH')
+    protocol = CONFIG.get(server_protocol[0], server_protocol[1])
+    host = CONFIG.get(server_host[0], server_host[1])
+    port = CONFIG.get(server_port[0], server_port[1])
+    path = CONFIG.get(server_path[0], server_path[1])
     base_url = "{0}://{1}:{2}/{3}".format(protocol, host, port, path)
 
     # Getting the values in the beginning and in the end to get the average of them
@@ -166,7 +189,7 @@ def main():
     LOGGER.debug('RPI data: {}'.format(data))
 
     # Sending data to the REST APIs
-    cpu_usage_path = CONFIG.get(CONFIG_GROUPS['server'], 'CPU_USAGE')
+    cpu_usage_path = CONFIG.get(server_cpu_usage[0], server_cpu_usage[1])
     cpu_usage_data = {
         'core0': cpu_0_usage,
         'core1': cpu_1_usage,
@@ -178,7 +201,7 @@ def main():
     except Exception as e:
         LOGGER.error(str(e))
 
-    cpu_temp_path = CONFIG.get(CONFIG_GROUPS['server'], 'CPU_TEMP')
+    cpu_temp_path = CONFIG.get(server_cpu_temp[0], server_cpu_temp[1])
     cpu_temp_data = {
         'temp': cpu_temp,
         'limit': 85.0
@@ -188,7 +211,7 @@ def main():
     except Exception as e:
         LOGGER.error(str(e))
 
-    mem_usage_path = CONFIG.get(CONFIG_GROUPS['server'], 'MEM_USAGE')
+    mem_usage_path = CONFIG.get(server_mem_usage[0], server_mem_usage[1])
     mem_usage_data = {
         'usage': mem_usage,
         'total': mem_total
@@ -198,7 +221,7 @@ def main():
     except Exception as e:
         LOGGER.error(str(e))
 
-    disk_usage_path = CONFIG.get(CONFIG_GROUPS['server'], 'DISK_USAGE')
+    disk_usage_path = CONFIG.get(server_disk_usage[0], server_disk_usage[1])
     disk_usage_data = {
         'sdUsage': disk_usage,
         'sdTotal': disk_total,
