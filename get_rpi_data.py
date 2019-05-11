@@ -15,49 +15,63 @@ DRIVES = {
     'cloud': '/mnt/cloud'
 }
 
-DB_CONNECTION = None
-DB_CURSOR = None
-TEMP_DB_FILE = '/mnt/dev/monitoring/RPI_data/temp_db'
-FILE = None
-
-LOGGER = None
-LOG_FILE = '/mnt/dev/log/python/rpi_data_polling.log'
-LOGGER_FORMAT = '%(asctime)15s | %(levelname)8s | %(name)s - %(funcName)12s - %(message)s'
+CONFIG_GROUPS = {
+    'database': 'DATABASE',
+    'logger': 'LOGGER',
+    'server': 'SERVER'
+}
 
 CONFIG = None
 CONFIG_FILE = '/mnt/dev/monitoring/RPI_data/get_rpi_data.conf'
 
+DB_CONNECTION = None
+DB_CURSOR = None
+TEMP_DB_FILE = None
+FILE = None
+
+LOGGER = None
+LOG_FILE = None
+LOGGER_FORMAT = None
+
 
 def init():
-    logging.basicConfig(filename=LOG_FILE, format=LOGGER_FORMAT, level=logging.INFO)
+    global CONFIG
+    CONFIG = configparser.ConfigParser()
+    CONFIG.read(CONFIG_FILE)
+
+    global TEMP_DB_FILE
+    TEMP_DB_FILE = CONFIG.get(CONFIG_GROUPS['database'], 'TEMP_FILE')
+
     global LOGGER
+    global LOG_FILE
+    global LOGGER_FORMAT
+    LOG_FILE = CONFIG.get(CONFIG_GROUPS['logger'], 'FILE')
+    LOGGER_FORMAT = CONFIG.get(CONFIG_GROUPS['logger'], 'FORMAT').replace('((', '%(')
+    logging.basicConfig(filename=LOG_FILE, format=LOGGER_FORMAT, level=logging.INFO)
     LOGGER = logging.getLogger('polling_rpi_system')
     try:
         global DB_CONNECTION
-        DB_CONNECTION = psycopg2.connect('dbname=adam user=adam')
         global DB_CURSOR
+        DB_CONNECTION = psycopg2.connect(CONFIG.get(CONFIG_GROUPS['database'], 'CONNECTION_STRING'))
         DB_CURSOR = DB_CONNECTION.cursor()
         LOGGER.debug('Connected to the database')
         LOGGER.debug('Checking temp file')
-        check_temp_file()
+        check_temp_file(TEMP_DB_FILE)
     except Exception:
         LOGGER.error('Cannot connect to the database, using the temporary file')
         global FILE
         FILE = open(TEMP_DB_FILE, 'a+')
 
-    CONFIG = configparser.ConfigParser()
-    CONFIG.read(CONFIG_FILE)
 
-
-def check_temp_file():
+def check_temp_file(temp_db_file):
     try:
-        file = open(TEMP_DB_FILE, 'r')
+        file = open(temp_db_file, 'r')
         lines = file.readlines()
         LOGGER.info('Found temporary file with {} records'.format(len(lines)))
         file.close()
         for line in lines:
             save_to_db(json.loads(line))
-        os.remove(TEMP_DB_FILE)
+        os.remove(temp_db_file)
     except Exception:
         pass
 
@@ -106,10 +120,10 @@ def to_gb(in_bytes):
 
 def main():
     # RPI Dashboard URL
-    protocol = CONFIG.get('SERVER', 'PROTOCOL')
-    host = CONFIG.get('SERVER', 'HOST')
-    port = CONFIG.get('SERVER', 'PORT')
-    path = CONFIG.get('SERVER', 'PATH')
+    protocol = CONFIG.get(CONFIG_GROUPS['server'], 'PROTOCOL')
+    host = CONFIG.get(CONFIG_GROUPS['server'], 'HOST')
+    port = CONFIG.get(CONFIG_GROUPS['server'], 'PORT')
+    path = CONFIG.get(CONFIG_GROUPS['server'], 'PATH')
     base_url = "{0}://{1}:{2}/{3}".format(protocol, host, port, path)
 
     # Getting the values in the beginning and in the end to get the average of them
@@ -152,7 +166,7 @@ def main():
     LOGGER.debug('RPI data: {}'.format(data))
 
     # Sending data to the REST APIs
-    cpu_usage_path = CONFIG.get('SERVER', 'CPU_USAGE')
+    cpu_usage_path = CONFIG.get(CONFIG_GROUPS['server'], 'CPU_USAGE')
     cpu_usage_data = {
         'core0': cpu_0_usage,
         'core1': cpu_1_usage,
@@ -164,7 +178,7 @@ def main():
     except Exception as e:
         LOGGER.error(str(e))
 
-    cpu_temp_path = CONFIG.get('SERVER', 'CPU_TEMP')
+    cpu_temp_path = CONFIG.get(CONFIG_GROUPS['server'], 'CPU_TEMP')
     cpu_temp_data = {
         'temp': cpu_temp,
         'limit': 85.0
@@ -174,7 +188,7 @@ def main():
     except Exception as e:
         LOGGER.error(str(e))
 
-    mem_usage_path = CONFIG.get('SERVER', 'MEM_USAGE')
+    mem_usage_path = CONFIG.get(CONFIG_GROUPS['server'], 'MEM_USAGE')
     mem_usage_data = {
         'usage': mem_usage,
         'total': mem_total
@@ -184,7 +198,7 @@ def main():
     except Exception as e:
         LOGGER.error(str(e))
 
-    disk_usage_path = CONFIG.get('SERVER', 'DISK_USAGE')
+    disk_usage_path = CONFIG.get(CONFIG_GROUPS['server'], 'DISK_USAGE')
     disk_usage_data = {
         'sdUsage': disk_usage,
         'sdTotal': disk_total,

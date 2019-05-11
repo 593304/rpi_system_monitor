@@ -128,3 +128,7 @@ Values will be saved to a temporary file if cannot connect to the database
 ## Update 4
 
 Added REST API calls for notifying a custom dashboard application
+
+## Update 5
+
+Added config file
