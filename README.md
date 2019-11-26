@@ -132,3 +132,7 @@ Added REST API calls for notifying a custom dashboard application
 ## Update 5
 
 Added config file
+
+## Update 6
+
+Handling multiple comma separated host address in config file

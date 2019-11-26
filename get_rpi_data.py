@@ -27,7 +27,7 @@ CONFIG_KEYS = {
     'logger_file': [CONFIG_GROUPS['logger'], 'FILE'],
     'logger_format': [CONFIG_GROUPS['logger'], 'FORMAT'],
     'server_protocol': [CONFIG_GROUPS['server'], 'PROTOCOL'],
-    'server_host': [CONFIG_GROUPS['server'], 'HOST'],
+    'server_hosts': [CONFIG_GROUPS['server'], 'HOST'],
     'server_port': [CONFIG_GROUPS['server'], 'PORT'],
     'server_path': [CONFIG_GROUPS['server'], 'PATH'],
     'server_cpu_usage': [CONFIG_GROUPS['server'], 'CPU_USAGE'],
@@ -134,7 +134,7 @@ def to_gb(in_bytes):
 
 def main():
     server_protocol = CONFIG_KEYS['server_protocol']
-    server_host = CONFIG_KEYS['server_host']
+    server_hosts = CONFIG_KEYS['server_hosts']
     server_port = CONFIG_KEYS['server_port']
     server_path = CONFIG_KEYS['server_path']
     server_cpu_usage = CONFIG_KEYS['server_cpu_usage']
@@ -144,10 +144,12 @@ def main():
 
     # RPI Dashboard URL
     protocol = CONFIG.get(server_protocol[0], server_protocol[1])
-    host = CONFIG.get(server_host[0], server_host[1])
+    hosts = CONFIG.get(server_hosts[0], server_hosts[1])
     port = CONFIG.get(server_port[0], server_port[1])
     path = CONFIG.get(server_path[0], server_path[1])
-    base_url = "{0}://{1}:{2}/{3}".format(protocol, host, port, path)
+    base_urls = []
+    for host in hosts.split(','):
+        base_urls.append("{0}://{1}:{2}/{3}".format(protocol, host, port, path))
 
     # Getting the values in the beginning and in the end to get the average of them
     cpu_temp = psutil.sensors_temperatures()['cpu-thermal'][0].current
@@ -196,30 +198,34 @@ def main():
         'core2': cpu_2_usage,
         'core3': cpu_3_usage
     }
-    try:
-        requests.post("{0}/{1}".format(base_url, cpu_usage_path), json=cpu_usage_data)
-    except Exception as e:
-        LOGGER.error(str(e))
+    for base_url in base_urls:
+        try:
+            requests.post("{0}/{1}".format(base_url, cpu_usage_path), json=cpu_usage_data)
+        except Exception as e:
+            LOGGER.error(str(e))
+            continue
 
     cpu_temp_path = CONFIG.get(server_cpu_temp[0], server_cpu_temp[1])
     cpu_temp_data = {
         'temp': cpu_temp,
         'limit': 85.0
     }
-    try:
-        requests.post("{0}/{1}".format(base_url, cpu_temp_path), json=cpu_temp_data)
-    except Exception as e:
-        LOGGER.error(str(e))
+    for base_url in base_urls:
+        try:
+            requests.post("{0}/{1}".format(base_url, cpu_temp_path), json=cpu_temp_data)
+        except Exception as e:
+            LOGGER.error(str(e))
 
     mem_usage_path = CONFIG.get(server_mem_usage[0], server_mem_usage[1])
     mem_usage_data = {
         'usage': mem_usage,
         'total': mem_total
     }
-    try:
-        requests.post("{0}/{1}".format(base_url, mem_usage_path), json=mem_usage_data)
-    except Exception as e:
-        LOGGER.error(str(e))
+    for base_url in base_urls:
+        try:
+            requests.post("{0}/{1}".format(base_url, mem_usage_path), json=mem_usage_data)
+        except Exception as e:
+            LOGGER.error(str(e))
 
     disk_usage_path = CONFIG.get(server_disk_usage[0], server_disk_usage[1])
     disk_usage_data = {
@@ -232,10 +238,11 @@ def main():
         'cloudUsage': cloud_usage,
         'cloudTotal': cloud_total
     }
-    try:
-        requests.post("{0}/{1}".format(base_url, disk_usage_path), json=disk_usage_data)
-    except Exception as e:
-        LOGGER.error(str(e))
+    for base_url in base_urls:
+        try:
+            requests.post("{0}/{1}".format(base_url, disk_usage_path), json=disk_usage_data)
+        except Exception as e:
+            LOGGER.error(str(e))
 
     # Saving data
     if DB_CONNECTION is None:
